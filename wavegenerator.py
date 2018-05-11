@@ -1,3 +1,7 @@
+#Wave generator class
+#Elizabeth Adelaide 2018
+#Generates pulse trains for linear and sinusoidal paths
+
 import string
 import math
 import pigpio
@@ -14,13 +18,15 @@ mmperrev = 70.0
 pulseperrev = 200.0
 mmperstep = mmperrev/(pulseperrev*microstep)
 
-
+#Utilities:
+#for loop with floats
 def frange(start, stop, step):
     r = start
     while r < stop:
         yield r
         r += step
 
+#adds waves together
 def combinewave(wave, p):
     for w in wave:
         if (w != -1):
@@ -28,13 +34,16 @@ def combinewave(wave, p):
     return p
 
 
+#class
 class Waves:
+	#initialize values
         def __init__(self):
                 self.waves = [] #list of waves for given group
                 self.maxf = 1 #max feedrate
                 self.x = 0.0
                 self.y = 0.0
 
+	#parse each line
         def addgc (self, gcline):
             splitgc = gcline.split(" ")
             for value in splitgc:
@@ -54,38 +63,48 @@ class Waves:
                     feedrate = self.toNum(value)
 
             #to add: error checking
+	    #check if G is reasonable, if values are in range, if feed is reasonabl
 
+	
             if cmd is 0:
-                feedrate = self.maxf
-            if cmd is 0 or cmd is 1:
+                feedrate = self.maxf #G0 -> maximumum feed rate
+            if cmd is 0 or cmd is 1: #linear commands
                 self.generatelinear(xpos, ypos, feedrate)
-            if cmd is 83:
+            if cmd is 83: #sinusoidal, this is an arbitary number
                 self.generatesine(ampl, peri, feedrate, numpulses)
 
+	#create a square pulse with appropriate timing
+	#currently only does horizontal and linear paths
         def generatelinear(self, xpos, ypos, feedrate):
 
+	    #to mm per us
             F = feedrate * convert
 
             #change to separate y and x pulse sizes
             dely = ypos - self.y
             delx = xpos - self.x
 
+	    #get angle and speed, this would work for any angle
             theta = math.atan2(dely, delx)
             vy = abs(F*math.sin(theta))
             vx = abs(F*math.cos(theta))
 
 
 
-            #get lcd
+            #check if horizontal or vertical
             if (vx != 0):
                 usperstepx = int(round(mmperstep / (2.0*vx))*2)
                 dt = usperstepx
             elif (vy != 0):
                 usperstepy = int(round(mmperstep / (2.0*vy))*2)
                 dt = usperstepy
-            print("usperstes:")
+	    else:
+		print("Error: Only horizontal and vertical paths allowed")
+		return -1
+            #print("usperstes:")
 
 
+	    #get the number of trains to repeat
             totaltime = int(round((math.sqrt(dely*dely + delx*delx) / F)))
             n = round(totaltime / dt)
 
@@ -95,6 +114,8 @@ class Waves:
             print(totaltime)
 
             #get pulse trains
+	    #each wave consists of pins on, pins off and length in us
+	    #waves are combined later
             xpulwave = []
             ypulwave = []
             xdirwave = []
@@ -108,6 +129,7 @@ class Waves:
                 else:
                     xdirwave.append(pigpio.pulse(0, 1<<GPIOxdir, int(totaltime)))
             else:
+		#ignore these paths
                 xpulwave = -1
                 ydirwave = -1
             if (ypos != 0):
@@ -122,7 +144,7 @@ class Waves:
                 ypulwave = -1
                 ydirwave = -1
 
-	                    
+	    #update wave
             self.waves.append([xpulwave, ypulwave, xdirwave, ydirwave, n])
 
         #generate sine pulses with constant feed rate
@@ -211,34 +233,7 @@ class Waves:
             f.close()
             print("Sine wave generated.")
 
-            '''# there is a limit of waveform lengths
-            # it is supposed to be 12000
-            #waves are then split up
-            length = 5000
-
-            print(["Total x pulses:", totalxpulses])
-            print(["Total y pulses:", totalypulses])
-            print(["Length of pulse train", len(xpulwave)])
-            if (len(xpulwave) > length):
-                for k in range(int(n)):
-                    N = int(math.floor(float(len(xpulwave))/ float(length)))
-                    for i in range(0, N-1):
-                        #print(["Adding subwave:", i])
-                        #print(["Start:", i*length])
-                        #print(["End:", (i+1)*length - 1])
-                        xpwave = xpulwave[i*length:(i+1)*length-1]
-                        ypwave = ypulwave[i*length:(i+1)*length-1]
-                        xdwave = xdirwave[i*length:(i+1)*length-1]
-                        ydwave = ydirwave[i*length:(i+1)*length-1]
-                        self.waves.append([xpwave, ypwave, xdwave, ydwave, 1])
-                    #add remaining waves
-                    if (len(xpulwave) != (N+1)*length):
-                        xpwave = xpulwave[(N+1)*length:]
-                        ypwave = ypulwave[(N+1)*length:]
-                        xdwave = xdirwave[(N+1)*length:]
-                        ydwave = ydirwave[(N+1)*length:]
-                    self.waves.append([xpwave, ypwave, xdwave, ydwave, 1])
-            else:'''
+            
             self.waves.append([xpulwave, ypulwave, xdirwave, ydirwave, n])
 
 
