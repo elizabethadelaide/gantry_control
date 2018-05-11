@@ -1,3 +1,7 @@
+#Main loop
+#Elizabeth Adelaide 2018
+#Runs paths from experiment directory
+
 #!/usr/bin/env python
 
 import pigpio
@@ -9,6 +13,7 @@ import glob, os
 #for time calcultions
 current_milli_time = lambda: int(round(time.time() * 1000))
 
+#controls GPIO output
 Class machine:
 
     def __init__(self):
@@ -51,7 +56,7 @@ Class machine:
                     self.w.addgc(line) #add each line as gcode
 
         end_time = current_milli_time()
-        print(["Preprcessing took", end_time-start_time, "ms"])
+        print(["Preprocessing took", end_time-start_time, "ms"])
 
     #run on neural input data
     def process(self):
@@ -83,6 +88,15 @@ Class machine:
                 self.pi.wave_send_once(wid)
 
                 #replace with encoder reading:
+                #read bank 1()
+                #write file with micros timestamp
+                #c program calculates error
+                #alternative:
+                #separate C file datalogs encoder, python code post proceesses bits
+                #questions
+                #can the GPIO daemon read and write at the same time?
+                #would a separate datalogging controller be more useful
+                #does the pgiod socket share read and write on the same buffer or separate?
                 time.sleep(float(pi.wave_get_micros()) / 1000000)
             self.pi.wave_delete(wid)
 
@@ -100,7 +114,15 @@ if __name__ == "__main__":
     f = open("exp/example.gc", "w")
     f.write(gc)
 
-    #these should be done on triggers
+    #these wil be done with interrupts
+    #set up callback to abort:
+    #pi.set_callback(ABORTPIN, doAbortProcedure())
+   
     m.startexp("exp")
+    #set up wait for trigger for TTL
+    #pi.waitfortrigger(TTLIN, m.process)
     m.process()
+  
+    #m.post process here:
+    #processes encoder data to real distances
     m.close()
